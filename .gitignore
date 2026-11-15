@@ -1,0 +1,20 @@
+# claves y permisos: van en el secreto CONFIG_B64 de GitHub, nunca en el repositorio
+claves.txt
+.env
+client_secret.json
+token.json
+secreto_para_github.txt
+# generados
+salida/
+logs/
+.venv/
+bin/
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+*.bak
+*.bat
+token*
+canal-efemerides-adaptado/
+data/originales/

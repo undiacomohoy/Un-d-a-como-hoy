@@ -1,0 +1,124 @@
+name: Canal automatico
+
+on:
+  schedule:
+    - cron: "30 9 * * *"    # Short 06:30 (Argentina, UTC-3): sale publicado a la mañana
+    - cron: "0 21 * * 0"    # Recopilación: domingo 18:00
+    - cron: "0 12 * * 1"    # Análisis: lunes 09:00
+  workflow_dispatch:
+    inputs:
+      tarea:
+        description: "Qué correr"
+        type: choice
+        options: [short, recopilacion, analisis, prueba]
+        default: short
+
+permissions:
+  contents: write
+
+concurrency:
+  group: canal
+  cancel-in-progress: false
+
+jobs:
+  correr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      GH_TOKEN: ${{ github.token }}
+      PYTHONUNBUFFERED: "1"
+      TZ: America/Argentina/Mendoza
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Elegir tarea
+        id: t
+        run: |
+          case "${{ github.event.schedule }}" in
+            "0 21 * * 0") T=recopilacion ;;
+            "0 12 * * 1") T=analisis ;;
+            "") T="${{ inputs.tarea }}" ;;
+            *) T=short ;;
+          esac
+          echo "tarea=$T" >> "$GITHUB_OUTPUT"
+          echo "Tarea: $T"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar FFmpeg y librerías
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-liberation > /dev/null
+          pip install -q -r requirements.txt
+
+      - name: Cargar claves (secreto CONFIG_B64)
+        env:
+          CONFIG_B64: ${{ secrets.CONFIG_B64 }}
+        run: |
+          if [ -z "$CONFIG_B64" ]; then echo "Falta el secreto CONFIG_B64"; exit 1; fi
+          echo "$CONFIG_B64" | base64 -d | tar xz
+          ls claves.txt client_secret.json token.json > /dev/null
+
+      - name: Prueba de servicios
+        if: steps.t.outputs.tarea == 'prueba'
+        run: python probar_gemini.py
+
+      - name: Producir y publicar un Short
+        if: steps.t.outputs.tarea == 'short'
+        run: python producir.py
+
+      - name: Guardar el Short para la recopilación del domingo
+        if: steps.t.outputs.tarea == 'short'
+        run: |
+          gh release view semana > /dev/null 2>&1 || gh release create semana --title "Shorts de la semana" --notes "Videos temporales para la recopilación semanal" --prerelease
+          for f in salida/*/final.mp4; do
+            [ -f "$f" ] || continue
+            nombre="$(basename "$(dirname "$f")").mp4"
+            cp "$f" "/tmp/$nombre"
+            gh release upload semana "/tmp/$nombre" --clobber
+          done
+
+      - name: Traer los Shorts de la semana
+        if: steps.t.outputs.tarea == 'recopilacion'
+        run: |
+          mkdir -p /tmp/semana
+          gh release download semana --dir /tmp/semana || true
+          for f in /tmp/semana/*.mp4; do
+            [ -f "$f" ] || continue
+            d="salida/$(basename "$f" .mp4)"; mkdir -p "$d"; mv "$f" "$d/final.mp4"
+          done
+
+      - name: Recopilación semanal
+        if: steps.t.outputs.tarea == 'recopilacion'
+        run: python recopilar.py
+
+      - name: Limpiar los Shorts ya recopilados
+        if: steps.t.outputs.tarea == 'recopilacion'
+        run: |
+          if ls salida/*_recopilacion/recopilacion.mp4 > /dev/null 2>&1; then
+            for a in $(gh release view semana --json assets -q '.assets[].name'); do gh release delete-asset semana "$a" -y; done
+          fi
+
+      - name: Análisis semanal
+        if: steps.t.outputs.tarea == 'analisis'
+        run: python analizar.py
+
+      - name: Guardar historial y aprendizajes
+        if: always()
+        run: |
+          git config user.name "Canal automatico"
+          git config user.email "actions@users.noreply.github.com"
+          git add data/
+          git diff --cached --quiet || (git commit -m "Estado: ${{ steps.t.outputs.tarea }} $(date -u +%F)" && git push)
+
+      - name: Guardar registros
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-${{ steps.t.outputs.tarea }}-${{ github.run_id }}
+          path: logs/
+          retention-days: 14
+          if-no-files-found: ignore
