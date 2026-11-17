@@ -45,12 +45,11 @@ class Equipo:
 
         ultimo_error = None
         for ronda in range(3):
-            for modelo in [self.modelo] + [m for m in self.modelos if m != self.modelo]:
+            for modelo in self.modelos:  # siempre en orden de calidad: no nos quedamos pegados al modelo chico
                 try:
                     texto = gemini.texto(modelo, rol, mensaje, max_tokens)
-                    if modelo != self.modelo:
-                        log.info("  cambio a modelo %s", modelo)
-                        self.modelo = modelo
+                    if modelo != self.modelos[0]:
+                        log.info("  respondió el modelo de respaldo %s", modelo)
                     return texto
                 except Exception as e:
                     ultimo_error = e

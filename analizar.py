@@ -46,6 +46,15 @@ def main():
     (CARPETA_DATOS / "reporte_semanal.md").write_text("\n".join(lineas) + "\n", encoding="utf-8")
     log.info("  Reporte guardado en data/reporte_semanal.md")
 
+    # copia del informe en tu Drive, para los agentes de la oficina (si Drive no está autorizado, se omite)
+    try:
+        from src import drive
+        texto = "\n".join(lineas) + "\n"
+        drive.subir_texto(f"Informe {stats['canal']} {datetime.now():%Y-%m-%d}.md", texto)
+        log.info("  Informe subido a Drive (carpeta 'Informes de canales')")
+    except Exception as e:
+        log.warning("  No se subió el informe a Drive (no es grave): %s", str(e)[:150])
+
 
 if __name__ == "__main__":
     try:

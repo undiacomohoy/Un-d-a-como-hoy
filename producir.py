@@ -30,7 +30,7 @@ def asegurar_cola(equipo: Equipo, config: dict, log) -> None:
         log.warning("  Curador no pudo agregar leyendas: %s", e)
 
 
-def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) -> None:
+def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) -> bool:
     asegurar_cola(equipo, config, log)
     leyenda = estado.elegir_leyenda(nombre)
     formato = estado.elegir_formato(config.get("formatos", []))
@@ -48,6 +48,12 @@ def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) ->
     correcciones, guion, meta, revision = "", None, None, None
     for intento in range(config["produccion"]["reintentos_guion"] + 1):
         guion = equipo.escribir_guion(ficha, recientes, correcciones, formato, aprend)
+        palabras = sum(len(e["texto"].split()) for e in guion["escenas"])
+        if palabras > 112:  # control propio: ahorra llamadas y le dice al guionista cuánto recortar
+            correcciones = (f"Tu guion anterior tenía {palabras} palabras y el máximo es 110. Recortalo a unas 100 palabras "
+                            f"(sacá {palabras - 100} palabras): menos adjetivos, frases más cortas, una sola idea por escena.")
+            log.warning("  guion demasiado largo (%d palabras), pido recorte", palabras)
+            continue
         meta = equipo.seo(ficha, guion, aprend)
         revision = equipo.revisar(ficha, guion, meta, recientes)
         if revision.get("aprobado"):
@@ -61,7 +67,7 @@ def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) ->
             encoding="utf-8")
         estado.registrar(leyenda["nombre"], "", "rechazado", carpeta.name, formato=formato["nombre"])
         log.error("El revisor rechazó el guion varias veces. No se produce este video.")
-        return
+        return False
 
     # 3) visuales, voz y montaje
     prompts = equipo.dirigir_visual(guion)
@@ -82,6 +88,7 @@ def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) ->
     else:
         estado.registrar(leyenda["nombre"], meta["titulo"], "generado", carpeta.name, formato=formato["nombre"])
         log.info("No se subió (modo sin subir). Video en: %s", video)
+    return True
 
 
 def main():
@@ -101,11 +108,24 @@ def main():
     cantidad = args.cantidad or config["produccion"]["videos_por_ejecucion"]
     equipo = Equipo(config)
 
+    fallos = 0
     for i in range(cantidad):
-        try:
-            producir_uno(equipo, config, args.leyenda if i == 0 else "", subir, log)
-        except Exception as e:
-            log.exception("ERROR produciendo el video: %s", e)
+        ok = False
+        for intento in range(3):  # si falla (Gemini saturado, guion rechazado), reintenta con otro intento completo
+            try:
+                if producir_uno(equipo, config, args.leyenda if i == 0 else "", subir, log):
+                    ok = True
+                    break
+            except Exception as e:
+                log.exception("ERROR produciendo el video: %s", e)
+            log.warning("Intento %d/3 fallido; espero 5 minutos y reintento", intento + 1)
+            import time
+            time.sleep(300)
+        if not ok:
+            fallos += 1
+    if fallos:
+        import sys
+        sys.exit(1)  # que GitHub marque la ejecución en rojo y te avise por mail
 
 
 if __name__ == "__main__":

@@ -64,7 +64,7 @@ voz:
   elevenlabs_modelo: "eleven_multilingual_v2"
 
 youtube:
-  privacidad: "public"                    # "public" (automático), "unlisted" (revisás antes) o "private"
+  privacidad: "public"                     # "public" (automático), "unlisted" (revisás antes) o "private"
   categoria_id: "27"                      # 27 = Educación (24 = Entretenimiento)
   contenido_sintetico: true               # declara que el video usa IA (recomendado)
   apto_para_ninos: false
@@ -72,7 +72,7 @@ youtube:
 
 produccion:
   videos_por_ejecucion: 1
-  reintentos_guion: 2                     # si el revisor rechaza, cuántas veces reescribe
+  reintentos_guion: 5                     # si el revisor rechaza, cuántas veces reescribe
   minimo_leyendas_en_cola: 8              # si quedan menos, el Curador agrega nuevas
   leyendas_por_curaduria: 15
 
