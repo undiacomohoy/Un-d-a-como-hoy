@@ -83,6 +83,17 @@ def elegir_leyenda(nombre: str = "") -> dict:
             if l["nombre"].lower() == nombre.lower():
                 return l
         return {"nombre": nombre, "origen": "a determinar por el investigador"}
+    # 0) agenda de la reunión de pre-producción: si hay una efeméride planificada para HOY, va primero
+    try:
+        hoy_iso = _hoy().strftime("%Y-%m-%d")
+        ya = _hechas()
+        for a in json.loads((LEYENDAS.parent / "agenda.json").read_text(encoding="utf-8")):
+            if a.get("fecha_exacta") == hoy_iso and a["nombre"] not in ya:
+                return a
+    except FileNotFoundError:
+        pass
+    except Exception as e:
+        print(f"[agenda] no se pudo leer: {e}")
     cola = pendientes()
     if not cola:
         raise RuntimeError("Ya se usaron todas las efemérides de data/leyendas.json. Agregá más a la lista.")
