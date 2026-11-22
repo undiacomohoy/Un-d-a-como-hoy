@@ -105,10 +105,15 @@ class Equipo:
             raise RuntimeError("El guionista no devolvió escenas")
         return guion
 
-    def dirigir_visual(self, guion: dict) -> list:
+    def dirigir_visual(self, guion: dict, ficha: dict = None) -> list:
         log.info("[3/5] Director visual")
-        datos = {"escenas": guion["escenas"], "estilo_visual": self.config["estilo_visual"]}
-        prompts = self._llamar("03_director_visual", datos)["prompts"]
+        datos = {"escenas": guion["escenas"], "estilo_visual": self.config["estilo_visual"],
+                 "estilos_por_tema": self.config.get("estilos_por_tema", {}),
+                 "tema": (ficha or {}).get("tema") or (ficha or {}).get("nombre", "")}
+        res = self._llamar("03_director_visual", datos)
+        self.categoria_visual = res.get("categoria", "")
+        log.info("  estilo visual elegido: %s", self.categoria_visual or "(por defecto)")
+        prompts = res["prompts"]
         if len(prompts) != len(guion["escenas"]):
             log.warning("  cantidad de prompts distinta a escenas; ajusto")
             while len(prompts) < len(guion["escenas"]):

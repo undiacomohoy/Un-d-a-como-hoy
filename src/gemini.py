@@ -11,7 +11,10 @@ def cliente():
     clave = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
     if not clave:
         raise RuntimeError("Falta GEMINI_API_KEY en el archivo .env (sacala en https://aistudio.google.com/apikey)")
-    return genai.Client(api_key=clave)
+    from google.genai import types
+
+    # Tope de espera por llamada (ms): si Gemini no responde, falla y se pasa al modelo siguiente en vez de colgarse.
+    return genai.Client(api_key=clave, http_options=types.HttpOptions(timeout=120_000))
 
 
 def _transitorio(e: Exception) -> bool:
@@ -46,6 +49,19 @@ def texto(modelo: str, sistema: str, mensaje: str, max_tokens: int = 4000) -> st
 
 
 def imagen(modelo: str, prompt: str, tamano: str = "1K") -> bytes:
+    import time
+
+    for intento in range(3):
+        try:
+            return _imagen(modelo, prompt, tamano)
+        except Exception as e:
+            if _transitorio(e) and intento < 2:
+                time.sleep(5)
+                continue
+            raise
+
+
+def _imagen(modelo: str, prompt: str, tamano: str = "1K") -> bytes:
     """Imagen vertical 9:16. Usa la API Interactions; si no está disponible, cae a generate_content."""
     c = cliente()
     try:
@@ -128,3 +144,27 @@ def _a_wav(audio: bytes) -> bytes:
         w.setframerate(24000)
         w.writeframes(audio)
     return buf.getvalue()
+
+
+def revisar_imagen(modelo: str, png: bytes, escena: str) -> dict:
+    """Mira una imagen generada y dice si tiene errores visibles. Devuelve {"ok": bool, "problemas": [...]}."""
+    import json
+
+    from google.genai import types
+
+    pedido = (
+        "Sos un control de calidad de imágenes para un video vertical. Mirá la imagen y respondé SOLO con JSON "
+        '{"ok": true/false, "problemas": ["..."]}. Marcá ok=false si hay: texto o letras (aunque sean ilegibles), '
+        "manos, dedos o brazos deformes o fusionados, caras deformes, cuerpos o extremidades fundidos o de más, "
+        "más de 2 personas, multitudes, objetos mal armados (cámaras, pelotas, armas) o cosas cortadas de forma rara. "
+        "NO juzgues si la imagen coincide con una escena ni si es bonita: solo errores técnicos visibles. "
+        "Si solo hay detalles menores de estilo, ok=true."
+    )
+    r = cliente().models.generate_content(
+        model=modelo,
+        contents=[types.Part.from_bytes(data=png, mime_type="image/png"), pedido],
+        config=types.GenerateContentConfig(response_mime_type="application/json", max_output_tokens=400,
+                                           temperature=0.1),
+    )
+    datos = json.loads(r.text or "{}")
+    return {"ok": bool(datos.get("ok", True)), "problemas": datos.get("problemas", [])}

@@ -70,14 +70,19 @@ def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) ->
         return False
 
     # 3) visuales, voz y montaje
-    prompts = equipo.dirigir_visual(guion)
+    prompts = equipo.dirigir_visual(guion, ficha)
     (carpeta / "produccion.json").write_text(
         json.dumps({"leyenda": leyenda, "formato": formato, "ficha": ficha, "guion": guion, "prompts": prompts,
                     "metadata": meta, "revision": revision}, ensure_ascii=False, indent=2),
         encoding="utf-8")
-    rutas_img = imagenes.ilustrar(prompts, carpeta, config)
+    rutas_img = imagenes.ilustrar(prompts, carpeta, config, guion["escenas"])
     audios = voz.narrar(guion["escenas"], carpeta, config["voz"])
     video = montaje.armar(guion["escenas"], rutas_img, audios, carpeta, config["video"])
+    try:  # el flyer del día es un extra: si falla, el video sigue
+        from src import flyer
+        flyer.crear(carpeta, leyenda, ficha, meta, rutas_img, getattr(equipo, "categoria_visual", ""), estado._hoy(), config)
+    except Exception as e:
+        log.warning("No se pudo armar el flyer del día: %s", str(e)[:150])
 
     # 4) publicación
     if subir:
@@ -96,12 +101,22 @@ def main():
     p.add_argument("--leyenda", default="", help="nombre de una leyenda específica")
     p.add_argument("--sin-subir", action="store_true", help="genera el video sin subirlo")
     p.add_argument("--cantidad", type=int, default=0, help="cuántos videos hacer")
+    p.add_argument("--solo-si-falta", action="store_true",
+                   help="reintento: no produce nada si el Short de hoy ya salió")
     p.add_argument("--no-listado", action="store_true", help="sube como no listado para revisarlo antes")
     args = p.parse_args()
 
     cargar_env()
     config = cargar_config()
     log = configurar_logs("produccion")
+    if args.solo_si_falta:
+        from src import estado
+        hoy = estado._hoy().strftime("%Y-%m-%d")
+        if any(h.get("tipo") == "short" and h.get("estado") in ("publicado", "generado")
+               and str(h.get("fecha", "")).startswith(hoy) for h in estado.historial()):
+            log.info("El Short de hoy ya salió; no hace falta el reintento.")
+            return
+        log.info("Todavía no salió el Short de hoy: lo produzco ahora (reintento).")
     subir = config["youtube"]["subir"] and not args.sin_subir
     if args.no_listado:
         config["youtube"]["privacidad"] = "unlisted"

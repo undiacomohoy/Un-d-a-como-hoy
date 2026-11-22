@@ -48,3 +48,21 @@ def subir_texto(nombre: str, texto: str) -> str:
     media = MediaInMemoryUpload(texto.encode("utf-8"), mimetype="text/markdown")
     f = svc.files().create(body={"name": nombre, "parents": [carpeta_id]}, media_body=media, fields="id").execute()
     return f["id"]
+
+
+def subir_archivo(nombre: str, datos: bytes, mimetype: str, carpeta: str = "Flyers del día") -> str:
+    """Sube un archivo (por ejemplo un flyer PNG) a una carpeta de tu Drive; la crea si no existe."""
+    from googleapiclient.discovery import build
+    from googleapiclient.http import MediaInMemoryUpload
+
+    svc = build("drive", "v3", credentials=obtener_credenciales(), cache_discovery=False)
+    q = f"name = '{carpeta}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    carpetas = svc.files().list(q=q, fields="files(id)", spaces="drive").execute().get("files", [])
+    if carpetas:
+        carpeta_id = carpetas[0]["id"]
+    else:
+        carpeta_id = svc.files().create(body={"name": carpeta, "mimeType": "application/vnd.google-apps.folder"},
+                                        fields="id").execute()["id"]
+    media = MediaInMemoryUpload(datos, mimetype=mimetype)
+    return svc.files().create(body={"name": nombre, "parents": [carpeta_id]}, media_body=media,
+                              fields="id").execute()["id"]

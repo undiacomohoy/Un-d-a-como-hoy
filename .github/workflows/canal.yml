@@ -3,6 +3,7 @@ name: Canal automatico
 on:
   schedule:
     - cron: "30 9 * * *"    # Short 06:30 (Argentina, UTC-3): sale publicado a la mañana
+    - cron: "30 12 * * *"   # Reintento 09:30: solo produce si el Short de hoy todavía no salió
     - cron: "0 21 * * 0"    # Recopilación: domingo 18:00
     - cron: "0 12 * * 1"    # Análisis: lunes 09:00
   workflow_dispatch:
@@ -37,6 +38,7 @@ jobs:
           case "${{ github.event.schedule }}" in
             "0 21 * * 0") T=recopilacion ;;
             "0 12 * * 1") T=analisis ;;
+            "30 12 * * *") T=short; echo "reintento=1" >> "$GITHUB_OUTPUT" ;;
             "") T="${{ inputs.tarea }}" ;;
             *) T=short ;;
           esac
@@ -68,7 +70,8 @@ jobs:
 
       - name: Producir y publicar un Short
         if: steps.t.outputs.tarea == 'short'
-        run: python producir.py
+        run: |
+          if [ "${{ steps.t.outputs.reintento }}" = "1" ]; then python producir.py --solo-si-falta; else python producir.py; fi
 
       - name: Guardar el Short para la recopilación del domingo
         if: steps.t.outputs.tarea == 'short'

@@ -24,9 +24,15 @@ video:
   musica_volumen: 0.12                    # 0.0 = sin música; poné mp3 en assets/musica/
 
 estilo_visual: >
-  ilustración histórica tipo grabado y acuarela, escenas de época fieles al lugar y al siglo,
-  paleta sepia y tonos tierra con acentos cálidos, luz suave de atardecer, composición vertical 9:16,
-  sin texto, sin letras, sin marcas de agua
+  fotografía cinematográfica, composición vertical 9:16, sin texto, sin letras, sin marcas de agua
+
+# Estilo según el tema: el director visual elige uno según de qué trata el hecho.
+estilos_por_tema:
+  historia: "cinematic documentary photograph look, warm amber, ochre and deep brown palette, soft golden light, subtle film grain, painterly depth"
+  ciencia: "clean cinematic photograph, deep blue and teal palette, cool crisp light with a subtle glow, modern and precise"
+  deporte: "vibrant cinematic photograph, saturated greens, bright sky blue and white, dynamic natural light, high contrast"
+  cultura: "rich cinematic photograph with intense jewel tones, magenta, deep violet and gold, theatrical stage lighting, moody atmosphere"
+  homenaje: "calm respectful cinematic photograph, soft blue-gray dusk palette with one warm candle-like light accent, quiet and dignified"
 
 # Configuración 100% GRATIS por defecto. Las opciones pagas quedan disponibles por si algún día las querés.
 modelos:

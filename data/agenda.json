@@ -40,5 +40,35 @@
   "nombre": "Día del Vino Argentino",
   "origen": "Argentina, 24 de noviembre: Día del Vino Argentino, bebida nacional. Enfocarse en la cultura, la historia y el trabajo de las viñas (Mendoza), sin promover el consumo.",
   "fecha_exacta": "2026-11-24"
+ },
+ {
+  "fecha": "11-25",
+  "nombre": "Aniversario de la muerte de Diego Maradona (2020)",
+  "origen": "Argentina, 25 de noviembre de 2020: fallece Diego Armando Maradona, bicampeón del mundo (Sub 20 en 1979 y México 86). Tono de homenaje respetuoso. Ilustrar con objetos y lugares (pelota, césped, cielo celeste y blanco), sin retratarlo.",
+  "fecha_exacta": "2026-11-25"
+ },
+ {
+  "fecha": "11-26",
+  "nombre": "El Concorde hace su último vuelo (2003)",
+  "origen": "26 de noviembre de 2003: el avión supersónico Concorde realiza su último vuelo en el trayecto París–Nueva York. Verificar detalles.",
+  "fecha_exacta": "2026-11-26"
+ },
+ {
+  "fecha": "11-27",
+  "nombre": "Argentina gana la Copa Davis (2016)",
+  "origen": "Argentina, 27 de noviembre de 2016: el equipo argentino de tenis gana por primera vez la Copa Davis. Ilustrar con objetos (copa, raquetas, cancha), sin retratar jugadores. Verificar sede y rival.",
+  "fecha_exacta": "2026-11-27"
+ },
+ {
+  "fecha": "11-28",
+  "nombre": "El accidente del Chapecoense (2016)",
+  "origen": "Colombia, 28 de noviembre de 2016: un avión de LaMia con el equipo brasileño Chapecoense se estrella cerca de Medellín. Tema sensible: tono de respeto, sin imágenes crudas ni personas, solo símbolos (camiseta, cancha, flores, luz).",
+  "fecha_exacta": "2026-11-28"
+ },
+ {
+  "fecha": "11-29",
+  "nombre": "Tratado de paz y amistad con Chile (1984)",
+  "origen": "Argentina y Chile, 29 de noviembre de 1984: se firma el Tratado de Paz y Amistad que cerró el conflicto del Beagle. Contar de forma neutral, ilustrar con mapas, montañas y paisajes australes. Verificar detalles.",
+  "fecha_exacta": "2026-11-29"
  }
 ]

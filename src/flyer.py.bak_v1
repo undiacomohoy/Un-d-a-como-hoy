@@ -1,0 +1,101 @@
+"""Arma el flyer del día (imagen + texto con gancho) y lo deja en tu Drive para que lo publiques en la comunidad."""
+import logging
+import re
+from pathlib import Path
+
+log = logging.getLogger("mitos")
+
+MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+         "noviembre", "diciembre"]
+# color de acento por estilo visual (coincide con estilos_por_tema)
+ACENTOS = {"historia": (232, 168, 76), "ciencia": (86, 190, 220), "deporte": (96, 210, 120),
+           "cultura": (214, 110, 200), "homenaje": (170, 190, 215)}
+FUENTES = ["C:/Windows/Fonts/arialbd.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+           "/System/Library/Fonts/Supplemental/Arial Bold.ttf", "/Library/Fonts/Arial Bold.ttf"]
+
+
+def _fuente(tam: int):
+    from PIL import ImageFont
+
+    for f in FUENTES:
+        if Path(f).exists():
+            return ImageFont.truetype(f, tam)
+    return ImageFont.load_default()
+
+
+def _partir(draw, texto: str, fuente, ancho: int) -> list:
+    lineas, actual = [], ""
+    for palabra in texto.split():
+        prueba = (actual + " " + palabra).strip()
+        if draw.textlength(prueba, font=fuente) <= ancho:
+            actual = prueba
+        else:
+            lineas.append(actual)
+            actual = palabra
+    if actual:
+        lineas.append(actual)
+    return lineas
+
+
+def _texto_publicacion(fecha_txt: str, leyenda: dict, ficha: dict, meta: dict) -> str:
+    titulo = re.sub(r"\s*#\w+", "", meta.get("titulo") or leyenda["nombre"]).strip()
+    gancho = ficha.get("dato_gancho", "").strip()
+    resumen = re.split(r"(?<=[.!?])\s+", ficha.get("resumen", "").strip())
+    cuerpo = " ".join(resumen[:2]).strip()
+    partes = [f"📅 Un día como hoy, {fecha_txt}", titulo, "", gancho, cuerpo, "",
+              "¿Lo sabías? Contanos en los comentarios 👇", "▶ Mirá el Short de hoy en el canal."]
+    return "\n".join(p for p in partes if p is not None).replace("\n\n\n", "\n\n")
+
+
+def crear(carpeta: Path, leyenda: dict, ficha: dict, meta: dict, rutas_img: list, categoria: str, hoy) -> Path:
+    from PIL import Image, ImageDraw
+
+    W, H = 1080, 1350
+    acento = ACENTOS.get(categoria, ACENTOS["historia"])
+    fondo = Image.open(rutas_img[0]).convert("RGB")
+    escala = max(W / fondo.width, H / fondo.height)
+    fondo = fondo.resize((int(fondo.width * escala), int(fondo.height * escala)))
+    x, y = (fondo.width - W) // 2, (fondo.height - H) // 2
+    img = fondo.crop((x, y, x + W, y + H))
+
+    # velo oscuro con degradado para que se lea el texto
+    velo = Image.new("RGBA", (W, H))
+    px = velo.load()
+    for j in range(H):
+        a = int(70 + 150 * (j / H) ** 1.5)
+        for i in range(W):
+            px[i, j] = (10, 10, 18, a)
+    img = Image.alpha_composite(img.convert("RGBA"), velo)
+    d = ImageDraw.Draw(img)
+
+    d.rounded_rectangle((60, 60, 470, 120), radius=30, fill=acento + (255,))
+    d.text((90, 71), "UN DÍA COMO HOY", font=_fuente(34), fill=(20, 20, 20, 255))
+
+    fecha_txt = f"{hoy.day} de {MESES[hoy.month - 1]}"
+    d.text((60, 560), str(hoy.day), font=_fuente(300), fill=(255, 255, 255, 255))
+    d.text((70, 880), MESES[hoy.month - 1].upper(), font=_fuente(72), fill=acento + (255,))
+
+    titulo = meta.get("titulo") or leyenda["nombre"]
+    titulo = re.sub(r"\s*#\w+", "", titulo)
+    titulo = re.sub(r"\s*\(\d{1,2} de \w+\)", "", titulo).strip()
+    f_t = _fuente(58)
+    y_t = 1010
+    for linea in _partir(d, titulo, f_t, W - 120)[:3]:
+        d.text((60, y_t), linea, font=f_t, fill=(255, 255, 255, 255))
+        y_t += 72
+    d.rectangle((60, H - 70, 260, H - 64), fill=acento + (255,))
+
+    salida = carpeta / "flyer.png"
+    img.convert("RGB").save(salida)
+    texto = _texto_publicacion(fecha_txt, leyenda, ficha, meta)
+    (carpeta / "flyer.txt").write_text(texto, encoding="utf-8")
+    try:
+        from . import drive
+
+        sello = hoy.strftime("%Y-%m-%d")
+        drive.subir_archivo(f"{sello} flyer.png", salida.read_bytes(), "image/png")
+        drive.subir_archivo(f"{sello} texto.txt", texto.encode("utf-8"), "text/plain")
+        log.info("Flyer y texto del día guardados en tu Drive (carpeta 'Flyers del día')")
+    except Exception as e:
+        log.warning("No pude subir el flyer a Drive (%s). Queda en %s", str(e)[:100], salida)
+    return salida

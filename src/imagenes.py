@@ -48,27 +48,65 @@ def _generadores(config: dict) -> list:
             for mod in m.get("cloudflare_modelos", ["@cf/black-forest-labs/flux-2-klein-4b"])]
 
 
-def ilustrar(prompts: list, carpeta: Path, config: dict) -> list:
+_control_apagado = {"si": False}
+
+
+def _revisar(png: bytes, escena: str, config: dict):
+    """Control de calidad con Gemini. Si el control mismo falla (cuota), se apaga para el resto del video."""
+    from . import gemini
+
+    if _control_apagado["si"]:
+        return None
+    modelos = config["modelos"].get("gemini_texto", [])
+    modelos = [modelos] if isinstance(modelos, str) else list(modelos)
+    for modelo in modelos:
+        try:
+            return gemini.revisar_imagen(modelo, png, escena)
+        except Exception as e:
+            log.warning("  control de imagen no disponible con %s (%s)", modelo, str(e)[:80])
+    log.warning("  control de imagen apagado para este video (sin cuota); sigo sin revisar")
+    _control_apagado["si"] = True
+    return None
+
+
+SIMPLIFICAR = " Simplify: a single object or empty landscape only, no people, no text, no crowds."
+
+
+def ilustrar(prompts: list, carpeta: Path, config: dict, escenas: list = None) -> list:
     generadores = _generadores(config)
+    revisar = config.get("produccion", {}).get("revisar_imagenes", True)
     rutas = []
     for i, prompt in enumerate(prompts):
         destino = carpeta / f"img_{i:02d}.png"
         log.info("Imágenes: %d/%d", i + 1, len(prompts))
+        escena = (escenas[i].get("que_se_ve") or escenas[i].get("texto", "")) if escenas and i < len(escenas) else ""
         listo = False
-        for nombre, generar in generadores:
-            p = prompt
-            for intento in range(3):
-                try:
-                    destino.write_bytes(generar(p))
-                    listo = True
+        mejor = None
+        for intento_calidad in range(3):  # hasta 3 versiones; si una tiene errores, se genera de nuevo más simple
+            p = prompt if intento_calidad == 0 else prompt + SIMPLIFICAR
+            png = None
+            for nombre, generar in generadores:
+                for intento in range(3):
+                    try:
+                        png = generar(p)
+                        break
+                    except Exception as e:  # filtro de contenido o límite: suavizamos y reintentamos
+                        log.warning("  %s, imagen %d falló (%s)", nombre, i + 1, str(e)[:200])
+                        p = "Atmospheric, non-graphic, family-safe illustration. " + p
+                        time.sleep(4 * (intento + 1))
+                if png:
                     break
-                except Exception as e:  # filtro de contenido o límite: suavizamos y reintentamos
-                    log.warning("  %s, imagen %d falló (%s)", nombre, i + 1, str(e)[:200])
-                    p = "Atmospheric, non-graphic, family-safe illustration. " + prompt
-                    time.sleep(4 * (intento + 1))
-            if listo:
+            if not png:
+                continue
+            mejor = png
+            res = _revisar(png, escena, config) if revisar else None
+            if res is None or res["ok"]:
+                listo = True
                 break
-        if not listo:
+            log.warning("  imagen %d con errores (%s); la genero de nuevo (%d/3)", i + 1,
+                        "; ".join(res["problemas"])[:150], intento_calidad + 1)
+        if mejor is None:
             raise RuntimeError(f"No se pudo generar la imagen {i + 1}")
+        destino.write_bytes(mejor)  # si ninguna salió limpia, se usa la última (la más simple)
         rutas.append(destino)
     return rutas
