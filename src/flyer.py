@@ -52,26 +52,71 @@ def _partir(draw, texto: str, fuente, ancho: int) -> list:
     return lineas
 
 
-def _ilustracion(carpeta: Path, titulo: str, categoria: str, rutas_img: list, config: dict):
-    """Pide a Gemini una ilustración para el póster. Si no puede, usa otro generador o la imagen del video."""
-    estilo = (config.get("estilos_por_tema") or {}).get(categoria, config.get("estilo_visual", ""))
-    prompt = (f"Vintage commemorative poster illustration about: {titulo}. Single clear focal subject, objects and "
-              f"landscapes only, no people faces, no crowds, no text, no letters, no numbers. Centered composition, "
-              f"rich detail, elegant poster art. Style: {estilo}")
-    m = config["modelos"]
+def _sujeto(titulo: str, config: dict) -> str:
+    """Un objeto o paisaje (en inglés, sin palabras) que simbolice el tema. Así Gemini no copia el título en la imagen."""
+    try:
+        import json
+
+        from . import gemini
+
+        modelos = config["modelos"]["gemini_texto"]
+        modelo = modelos[0] if isinstance(modelos, list) else modelos
+        r = gemini.texto(modelo, 'Respondé solo JSON: {"sujeto": "..."}',
+                         f"Tema de una efeméride: {titulo}\nDescribí en inglés, en menos de 25 palabras, UN solo objeto o "
+                         f"paisaje que simbolice el tema, para ilustrar un póster. Sin personas, sin caras, sin letras, "
+                         f"sin palabras, sin números, sin carteles ni escrituras.", 600)
+        sujeto = json.loads(r).get("sujeto", "").strip()
+        if sujeto:
+            return sujeto
+    except Exception as e:
+        log.warning("  flyer: no pude pedir el sujeto (%s)", str(e)[:80])
+    return "a single antique symbolic object on a plain background"
+
+
+def _tiene_texto(png: bytes, config: dict) -> bool:
+    """True si la ilustración trae letras o palabras (revisión con visión de Gemini). Si no se puede revisar, False."""
     try:
         from . import gemini
 
-        png = gemini.imagen(m.get("gemini_imagenes", "gemini-nano-banana-2.1"), prompt, m.get("gemini_imagen_tamano", "1K"))
+        modelos = config["modelos"]["gemini_texto"]
+        modelo = modelos[0] if isinstance(modelos, list) else modelos
+        r = gemini.revisar_imagen(modelo, png, "poster illustration")
+        probl = " ".join(r.get("problemas") or []).lower() if isinstance(r.get("problemas"), list) else str(r.get("problemas", "")).lower()
+        return (not r.get("ok", True)) and any(k in probl for k in ("text", "letter", "word", "texto", "letra", "palabra"))
+    except Exception:
+        return False
+
+
+def _ilustracion(carpeta: Path, titulo: str, categoria: str, rutas_img: list, config: dict):
+    """Pide a Gemini una ilustración para el póster. Si no sale limpia, usa otro generador o la imagen del video."""
+    estilo = (config.get("estilos_por_tema") or {}).get(categoria, config.get("estilo_visual", ""))
+    sujeto = _sujeto(titulo, config)
+    base = (f"Vintage commemorative poster illustration. Subject: {sujeto}. Single clear focal subject, objects and "
+            f"landscapes only, no people, no faces, no crowds. ABSOLUTELY NO TEXT: no letters, no words, no numbers, "
+            f"no signs, no captions, no writing of any kind. Centered composition, rich detail, elegant poster art. "
+            f"Style: {estilo}")
+    m = config["modelos"]
+    for intento in range(2):
+        prompt = base if intento == 0 else base + " Simplify: one object only, plain background, nothing written anywhere."
+        try:
+            from . import gemini
+
+            png = gemini.imagen(m.get("gemini_imagenes", "gemini-nano-banana-2.1"), prompt, m.get("gemini_imagen_tamano", "1K"))
+        except Exception as e:
+            log.warning("  flyer: Gemini no pudo ilustrar (%s)", str(e)[:100])
+            break
+        if _tiene_texto(png, config):
+            log.warning("  flyer: la ilustración trae texto; la rehago" if intento == 0 else "  flyer: sigue con texto; uso la imagen del video")
+            continue
         log.info("  flyer: ilustración hecha con Gemini")
         return png
-    except Exception as e:
-        log.warning("  flyer: Gemini no pudo ilustrar (%s); uso otro generador", str(e)[:100])
+    else:
+        return Path(rutas_img[0]).read_bytes()
     try:
         from .imagenes import _generadores
 
         nombre, generar = _generadores(config)[0]
-        return generar(prompt)
+        return generar(base)
     except Exception as e:
         log.warning("  flyer: tampoco el generador gratuito (%s); uso la imagen del video", str(e)[:100])
     return Path(rutas_img[0]).read_bytes()
@@ -144,6 +189,7 @@ def _marco(d, W: int, H: int, color):
 
 def _texto_publicacion(fecha_txt: str, leyenda: dict, ficha: dict, meta: dict) -> str:
     titulo = re.sub(r"\s*#\w+", "", meta.get("titulo") or leyenda["nombre"]).strip()
+    titulo = re.sub(r"[\s.,:;·-]*\b\d{1,2} de [a-záéíóúñ]+\s*$", "", titulo, flags=re.I).strip()
     gancho = ficha.get("dato_gancho", "").strip()
     resumen = re.split(r"(?<=[.!?])\s+", ficha.get("resumen", "").strip())
     cuerpo = " ".join(resumen[:2]).strip()
@@ -163,6 +209,7 @@ def crear(carpeta: Path, leyenda: dict, ficha: dict, meta: dict, rutas_img: list
     acento = ACENTOS.get(categoria, ACENTOS["historia"])
     titulo = re.sub(r"\s*#\w+", "", meta.get("titulo") or leyenda["nombre"])
     titulo = re.sub(r"\s*\(\d{1,2} de \w+\)", "", titulo).strip()
+    titulo = re.sub(r"[\s.,:;·-]*\b\d{1,2} de [a-záéíóúñ]+\s*$", "", titulo, flags=re.I).strip()
     anio = None
     m_anio = re.search(r"\((\d{4})\)", leyenda.get("nombre", "")) or re.search(r"\b(1\d{3}|20\d{2})\b", titulo)
     if m_anio:
@@ -213,8 +260,9 @@ def crear(carpeta: Path, leyenda: dict, ficha: dict, meta: dict, rutas_img: list
         d.text((74, y), linea, font=f_t, fill=CREMA, anchor="ls")
         y += 68
     gancho = (ficha.get("dato_gancho") or "").strip()
-    if len(gancho) > 120:
-        gancho = gancho[:118].rsplit(" ", 1)[0].rstrip(",;:") + "…"
+    if len(gancho) > 150:
+        corte = gancho[:150]
+        gancho = (corte.rsplit(". ", 1)[0] + ".") if ". " in corte else corte.rsplit(" ", 1)[0].rstrip(",;:") + "…"
     if gancho and len(lineas) <= 2:
         f_g = _fuente(ITALICA, 33)
         y += 8
@@ -225,9 +273,9 @@ def crear(carpeta: Path, leyenda: dict, ficha: dict, meta: dict, rutas_img: list
     # --- pie
     d.line((74, 1236, W - 74, 1236), fill=acento, width=2)
     d.text((74, 1282), "Seguinos y no te pierdas ninguna", font=_fuente(SANS, 26), fill=CREMA, anchor="ls")
-    d.rectangle((W - 74 - 250, 1252, W - 74, 1298), fill=ROJO)
-    d.polygon([(W - 74 - 226, 1263), (W - 74 - 226, 1287), (W - 74 - 206, 1275)], fill=CREMA)
-    d.text((W - 74 - 190, 1275), "MIRÁ EL SHORT", font=_fuente(SANS, 24), fill=CREMA, anchor="lm")
+    d.rectangle((W - 74 - 290, 1252, W - 74, 1298), fill=ROJO)
+    d.polygon([(W - 74 - 268, 1263), (W - 74 - 268, 1287), (W - 74 - 248, 1275)], fill=CREMA)
+    d.text((W - 74 - 232, 1275), "MIRÁ EL SHORT", font=_fuente(SANS, 22), fill=CREMA, anchor="lm")
     _marco(d, W, H, acento)
     img = img.convert("RGB")
 

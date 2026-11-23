@@ -1,0 +1,8 @@
+@echo off
+cd /d "%~dp0"
+call venv\Scripts\activate.bat
+echo Prueba del nuevo diseno: genera un video SIN subirlo. Tarda unos 10 minutos.
+python producir.py --sin-subir --leyenda "Se firma el Tratado de Paz y Amistad con Chile (1984)"
+echo.
+echo Listo. Abre la carpeta salida y mira el video final.mp4 mas nuevo.
+pause

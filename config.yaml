@@ -81,6 +81,7 @@ produccion:
   reintentos_guion: 5                     # si el revisor rechaza, cuántas veces reescribe
   minimo_leyendas_en_cola: 8              # si quedan menos, el Curador agrega nuevas
   leyendas_por_curaduria: 15
+  revisar_imagenes: false                 # gasta mucha cuota de Gemini; las pruebas de la PC la prenden con REVISAR_IMAGENES=1
 
 # Formatos que rotan para que el canal no sea repetitivo (YouTube no monetiza contenido "en serie").
 # El Analista aprende cuáles funcionan mejor y se priorizan.

@@ -4,11 +4,20 @@ import os
 from functools import lru_cache
 
 
+def _clave():
+    """En la PC, si hay una clave de pruebas (GEMINI_API_KEY_PRUEBAS) se usa esa, así tus pruebas no gastan la cuota de la nube."""
+    if not os.environ.get("GITHUB_ACTIONS"):
+        k = os.environ.get("GEMINI_API_KEY_PRUEBAS")
+        if k:
+            return k
+    return os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+
+
 @lru_cache(maxsize=1)
 def cliente():
     from google import genai
 
-    clave = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    clave = _clave()
     if not clave:
         raise RuntimeError("Falta GEMINI_API_KEY en el archivo .env (sacala en https://aistudio.google.com/apikey)")
     from google.genai import types
@@ -97,7 +106,7 @@ def voz(modelo: str, nombre_voz: str, estilo: str, texto_narrado: str) -> bytes:
 
     import requests
 
-    clave = os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY")
+    clave = _clave()
     if not clave:
         raise RuntimeError("Falta GEMINI_API_KEY en el archivo de claves")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{modelo}:generateContent"

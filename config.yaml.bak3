@@ -1,0 +1,106 @@
+# ============================================================
+#  CONFIGURACIÓN DEL CANAL "Un Día Como Hoy" (efemérides)
+# ============================================================
+
+github:
+  repositorio: "undiacomohoy/Un-d-a-como-hoy"   # PENDIENTE: usuario/repositorio, ej: "miusuario/un-dia-como-hoy"
+
+canal:
+  nombre: "Un Día Como Hoy"
+  serie: "Lo que pasó un día como hoy en la historia"
+  idioma: "es"
+  acento: "rioplatense neutro"            # tono del narrador: "neutro latino", "rioplatense", etc.
+  tono: "enérgico, entusiasta y dinámico, como alguien que se muere de ganas de contarte un hecho de la historia y por qué se recuerda hoy"
+  cierre_fijo: "Esto pasó un día como hoy. ¿Qué otra fecha querés que contemos? Dejala en los comentarios."
+
+video:
+  duracion_objetivo_seg: 55               # Shorts: ideal 40–60 s
+  escenas: 7                              # cantidad de imágenes por video
+  ancho: 1080
+  alto: 1920
+  fps: 30
+  fuente_subtitulos: "Arial"              # en Windows existe; en Mac usá "Helvetica"
+  tamano_subtitulos: 86
+  musica_volumen: 0.12                    # 0.0 = sin música; poné mp3 en assets/musica/
+
+estilo_visual: >
+  fotografía cinematográfica, composición vertical 9:16, sin texto, sin letras, sin marcas de agua
+
+# Estilo según el tema: el director visual elige uno según de qué trata el hecho.
+estilos_por_tema:
+  historia: "cinematic documentary photograph look, warm amber, ochre and deep brown palette, soft golden light, subtle film grain, painterly depth"
+  ciencia: "clean cinematic photograph, deep blue and teal palette, cool crisp light with a subtle glow, modern and precise"
+  deporte: "vibrant cinematic photograph, saturated greens, bright sky blue and white, dynamic natural light, high contrast"
+  cultura: "rich cinematic photograph with intense jewel tones, magenta, deep violet and gold, theatrical stage lighting, moody atmosphere"
+  homenaje: "calm respectful cinematic photograph, soft blue-gray dusk palette with one warm candle-like light accent, quiet and dignified"
+
+# Configuración 100% GRATIS por defecto. Las opciones pagas quedan disponibles por si algún día las querés.
+modelos:
+  # --- Cerebro de los agentes ---
+  proveedor_texto: "gemini"               # "gemini" (GRATIS) o "claude" (pago)
+  gemini_texto:                           # se prueban en orden; si uno llega al límite diario, pasa al otro
+    - "gemini-3.8-flash"
+    - "gemini-3.6-flash"
+    - "gemini-3.5-flash-lite"
+  claude: "claude-sonnet-5-5"
+
+  # --- Imágenes ---
+  proveedor_imagenes: "cloudflare"        # "cloudflare" (GRATIS), "gemini" o "openai" (pagos)
+  cloudflare_modelos:                     # se prueban en orden
+    - "@cf/black-forest-labs/flux-2-klein-4b"   # mejor calidad, vertical
+    - "@cf/black-forest-labs/flux-1-schnell"    # respaldo, cuadrada
+  cloudflare_ancho: 720
+  cloudflare_alto: 1280
+  gemini_imagenes: "gemini-nano-banana-2.1"
+  gemini_imagen_tamano: "1K"
+  imagenes: "gpt-image-1"
+  imagen_tamano: "1024x1536"
+  imagen_calidad: "medium"
+
+voz:
+  proveedor: "gemini"                     # "gemini" (GRATIS con límite diario), "edge" (GRATIS) o "elevenlabs" (pago)
+  respaldo: "edge"                        # si Gemini llega al límite, el video entero se narra con esta
+  gemini_modelo: "gemini-3.8-flash-tts"
+  gemini_voz: "Kore"                      # probá también: Puck, Zephyr, Sulafat, Achird
+  gemini_estilo: "energetic, enthusiastic and lively storyteller, expressive intonation, upbeat dynamic pace, like telling an exciting story to a friend"
+  velocidad: 1.15                         # acelera la narración sin cambiar el tono (1.0 = normal)
+  pausa_gemini_seg: 21                    # espera entre escenas para no pasar el límite gratuito por minuto
+  edge_voz: "es-AR-TomasNeural"           # voz gratis (Microsoft). Otras: es-MX-JorgeNeural, es-ES-AlvaroNeural
+  elevenlabs_voice_id: ""
+  elevenlabs_modelo: "eleven_multilingual_v2"
+
+youtube:
+  privacidad: "public"                     # "public" (automático), "unlisted" (revisás antes) o "private"
+  categoria_id: "27"                      # 27 = Educación (24 = Entretenimiento)
+  contenido_sintetico: true               # declara que el video usa IA (recomendado)
+  apto_para_ninos: false
+  subir: true                             # false = solo genera el video, no lo sube
+
+produccion:
+  videos_por_ejecucion: 1
+  reintentos_guion: 5                     # si el revisor rechaza, cuántas veces reescribe
+  minimo_leyendas_en_cola: 8              # si quedan menos, el Curador agrega nuevas
+  leyendas_por_curaduria: 15
+
+# Formatos que rotan para que el canal no sea repetitivo (YouTube no monetiza contenido "en serie").
+# El Analista aprende cuáles funcionan mejor y se priorizan.
+formatos:
+  - nombre: "cronica"
+    instrucciones: "Contá el hecho como una crónica del día: cómo empezó esa mañana, qué ocurrió y qué cambió desde entonces."
+  - nombre: "dato_sorprendente"
+    instrucciones: "Abrí con el dato más insólito del hecho y después explicá el contexto que lo hace posible."
+  - nombre: "antes_y_despues"
+    instrucciones: "Mostrá cómo era el mundo el día anterior y cómo cambió a partir de ese día."
+  - nombre: "mirada_de_epoca"
+    instrucciones: "Contalo ubicando al espectador en la época: cómo era el lugar y el clima de ese momento, usando SOLO lo que dice la ficha. No inventes testigos, recuerdos ni personas presentes que la ficha no mencione."
+  - nombre: "numeros"
+    instrucciones: "Estructuralo en tres números clave (años, distancias, personas, días) que dimensionan el hecho."
+  - nombre: "consecuencias"
+    instrucciones: "Contá qué pasó ese día y las tres consecuencias que todavía se notan hoy."
+
+# Recopilación semanal (video largo horizontal con los Shorts de la semana: suma horas de reproducción)
+recopilacion:
+  activa: true
+  dias: 7                                 # junta los videos de los últimos N días
+  minimo_videos: 4
+  privacidad: "public"

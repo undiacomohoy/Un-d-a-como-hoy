@@ -74,7 +74,9 @@ SIMPLIFICAR = " Simplify: a single object or empty landscape only, no people, no
 
 def ilustrar(prompts: list, carpeta: Path, config: dict, escenas: list = None) -> list:
     generadores = _generadores(config)
-    revisar = config.get("produccion", {}).get("revisar_imagenes", True)
+    # La revisión gasta muchas llamadas a Gemini: en la nube va apagada; en las pruebas de la PC se prende con REVISAR_IMAGENES=1
+    import os
+    revisar = bool(config.get("produccion", {}).get("revisar_imagenes", False)) or os.environ.get("REVISAR_IMAGENES") == "1"
     rutas = []
     for i, prompt in enumerate(prompts):
         destino = carpeta / f"img_{i:02d}.png"
