@@ -64,6 +64,18 @@ class Equipo:
                 time.sleep(60)
         raise RuntimeError(f"Ningún modelo de Gemini disponible ahora (límite gratuito diario?): {ultimo_error}")
 
+    def _cierre(self) -> str:
+        """Prueba A/B del cierre: días pares, el de siempre (comentarios); días impares, el que pide seguir al canal."""
+        c = self.config["canal"]
+        alterno = c.get("cierre_alterno", "")
+        if alterno:
+            from . import estado
+            if estado._hoy().day % 2 == 1:
+                self.config["_cierre_usado"] = "seguir"
+                return alterno
+        self.config["_cierre_usado"] = "comentarios"
+        return c["cierre_fijo"]
+
     def _llamar(self, agente: str, datos: dict, max_tokens: int = 4000):
         rol = (CARPETA_AGENTES / f"{agente}.md").read_text(encoding="utf-8")
         mensaje = json.dumps(datos, ensure_ascii=False, indent=2)
@@ -87,7 +99,7 @@ class Equipo:
         c, v = self.config["canal"], self.config["video"]
         datos = {
             "ficha": ficha,
-            "canal": c,
+            "canal": {**{k: x for k, x in c.items() if k != "cierre_alterno"}, "cierre_fijo": self._cierre()},
             "duracion_objetivo_seg": v["duracion_objetivo_seg"],
             "cantidad_escenas": v["escenas"],
             "titulos_recientes": recientes,
@@ -172,7 +184,7 @@ class Equipo:
             "metadata": meta,
             "duracion_objetivo_seg": self.config["video"]["duracion_objetivo_seg"],
             "palabras_totales": palabras,
-            "cierre_fijo": self.config["canal"]["cierre_fijo"],
+            "cierre_fijo": self._cierre(),
             "titulos_recientes": recientes,
         }
         return self._llamar("05_revisor", datos)

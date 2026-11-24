@@ -12,6 +12,7 @@ canal:
   acento: "rioplatense neutro"            # tono del narrador: "neutro latino", "rioplatense", etc.
   tono: "enérgico, entusiasta y dinámico, como alguien que se muere de ganas de contarte un hecho de la historia y por qué se recuerda hoy"
   cierre_fijo: "Esto pasó un día como hoy. ¿Qué otra fecha querés que contemos? Dejala en los comentarios."
+  cierre_alterno: "Esto pasó un día como hoy. Seguinos y mañana te cuento otra."   # prueba A/B: días impares
 
 video:
   duracion_objetivo_seg: 55               # Shorts: ideal 40–60 s

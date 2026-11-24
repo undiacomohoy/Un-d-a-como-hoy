@@ -152,10 +152,25 @@ def recientes_publicados(dias: int) -> list:
             and datetime.fromisoformat(h["fecha"]) >= limite]
 
 
+_LOCAL = ("argentin", "san juan", "mendoza", "cuyo", "caucete", "buenos aires", "córdoba", "tucumán", "malvinas",
+          "belgrano", "san martín", "maradona", "bebida nacional", "obligado", "treinta y tres", "uruguay", "chile",
+          "sudamérica", "latinoamérica", "rosario", "patagonia", "perón", "evita")
+
+
+def clasificar_ambito(leyenda: dict) -> str:
+    """'argentina' si la efeméride es de Argentina o la región; si no, 'global'. Sirve para que el Analista compare."""
+    texto = f"{leyenda.get('nombre', '')} {leyenda.get('origen', '')}".lower()
+    return "argentina" if any(k in texto for k in _LOCAL) else "global"
+
+
 def registrar(leyenda: str, titulo: str, estado: str, carpeta: str, video_id: str = "",
-              formato: str = "", tipo: str = "short") -> None:
+              formato: str = "", tipo: str = "short", categoria: str = "", ambito: str = "",
+              cierre: str = "") -> None:
     historial = _leer()
     historial.append({
+        "categoria": categoria,
+        "ambito": ambito,
+        "cierre": cierre,
         "fecha": datetime.now().isoformat(timespec="seconds"),
         "tipo": tipo,
         "leyenda": leyenda,

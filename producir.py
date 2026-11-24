@@ -89,7 +89,8 @@ def producir_uno(equipo: Equipo, config: dict, nombre: str, subir: bool, log) ->
         from src import youtube
         video_id = youtube.subir(video, meta, config["youtube"])
         estado.registrar(leyenda["nombre"], meta["titulo"], "publicado", carpeta.name, video_id,
-                         formato=formato["nombre"])
+                         formato=formato["nombre"], categoria=getattr(equipo, "categoria_visual", ""),
+                         ambito=estado.clasificar_ambito(leyenda), cierre=config.get("_cierre_usado", ""))
     else:
         estado.registrar(leyenda["nombre"], meta["titulo"], "generado", carpeta.name, formato=formato["nombre"])
         log.info("No se subió (modo sin subir). Video en: %s", video)
